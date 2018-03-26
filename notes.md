@@ -30,7 +30,21 @@ The problem of mapping a set of high-dimensional points onto a low dimensional m
     - FitNet
     - adversarial distillation
 
+## Data Splitting
+
+Omniglot consists in 1623 different handwritten characters (from 50 alphabets). Each character is drawn 20 times and stored as a 105x105 grayscale image. We are given a background set and an evaluation set.
+
+- background set: contains 40 alphabets. We use this set, with normal train, valid, test splits to tune the model for verification.
+- evaluation set: contains 10 alphabets. We use this set to measure the one-shot classification performance.
+
+The authors consider all 50 alphabets together.
+
+- train: 30/50 (60%) of the alphabets, 12 of the 20 drawers. Uniform number of training examples per alphabet so that each alphabet receives equal representation. Hallucinate 8 affine transformations for each training example. 3 datasets of sizes 30k, 90k, 150k. With the hallucinations, these sizes get multiplied by 9: 270k, 810k, 1,350k.
+- validation: 10k example pairs from 10/50 (20%) alphabets and 4 drawers. Generate a set of 320 one-shot recognition trials and use it as a termination criterion.
+- testing: 10/50 (20%) alphabets, 4 drawers.
+
 ## Variations on the Paper
 
 - relu placed after maxpool to reduce the # of computation by 75%
 - weight init strategy possibly changed to he et al since it uses relu activation
+- currently, I am forwarding both input batch pairs sequentially. I could reduce the batch size and forward them together, then use indexing to select the left pairs, and the right pairs and continue as previously. This would probably be more efficient.

@@ -33,6 +33,9 @@ class Trainer(object):
 
         # misc params
         self.use_gpu = config.use_gpu
+        self.dtype = (
+            torch.cuda.FloatTensor if self.use_gpu else torch.FloatTensor
+        )
 
         # optimization params
         self.epochs = config.epochs
