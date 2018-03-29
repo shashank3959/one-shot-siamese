@@ -137,7 +137,8 @@ def save_config(config):
     with open(param_path, 'w') as fp:
         json.dump(config.__dict__, fp, indent=4, sort_keys=True)
 
-# adapted from https://stackoverflow.com/questions/31468117/python-3-can-pickle-handle-byte-objects-larger-than-4gb
+
+# adapted from https://bit.ly/2pP5qki
 class MacOSFile(object):
     def __init__(self, f):
         self.f = f
@@ -164,8 +165,8 @@ class MacOSFile(object):
             batch_size = min(n - idx, 1 << 31 - 1)
             print("Writing bytes [{}, {}]".format(idx, idx+batch_size))
             self.f.write(buffer[idx:idx + batch_size])
-            print("[!] Done")
             idx += batch_size
+        print("Done!")
 
 
 def pickle_dump(obj, file_path):
