@@ -100,12 +100,12 @@ def array2img(x, gray=False):
     return Image.fromarray(x.astype('uint8'), 'RGB')
 
 
-def plot_omniglot_pairs(imgs, labels):
+def plot_omniglot_pairs(imgs, labels, name=None, save=False):
     num_rows = imgs.shape[0]
     num_cols = imgs.shape[1]
 
     fig, big_axes = plt.subplots(
-        figsize=(8.0, 8.0) , nrows=num_rows, ncols=1, sharey=True
+        figsize=(8.0, 8.0), nrows=num_rows, ncols=1, sharey=True,
     )
 
     for i, big_ax in enumerate(big_axes):
@@ -114,7 +114,7 @@ def plot_omniglot_pairs(imgs, labels):
 
         # turn off axis lines and ticks of the big subplot
         big_ax.tick_params(
-            labelcolor=(1.,1.,1., 0.0), top='off',
+            labelcolor=(1., 1., 1., 0.0), top='off',
             bottom='off', left='off', right='off'
         )
         big_ax._frameon = False
@@ -137,6 +137,9 @@ def plot_omniglot_pairs(imgs, labels):
 
     fig.set_facecolor('w')
     plt.tight_layout()
+    if save:
+        plot_dir = './plots/'
+        plt.savefig(plot_dir + name, format='png', dpi=150)
     plt.show()
 
 
@@ -189,11 +192,13 @@ class MacOSFile(object):
         print("Done!")
 
 
+# adapted from https://bit.ly/2pP5qki
 def pickle_dump(obj, file_path):
     with open(file_path, "wb") as f:
         return pickle.dump(obj, MacOSFile(f), protocol=pickle.HIGHEST_PROTOCOL)
 
 
+# adapted from https://bit.ly/2pP5qki
 def pickle_load(file_path):
     with open(file_path, "rb") as f:
         return pickle.load(MacOSFile(f))

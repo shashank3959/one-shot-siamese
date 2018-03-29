@@ -62,7 +62,15 @@ class Trainer(object):
         pass
 
     def save_checkpoint(self, state):
-        pass
+        filename = self.model_name + '_ckpt.pth.tar'
+        ckpt_path = os.path.join(self.ckpt_dir, filename)
+        torch.save(state, ckpt_path)
+
+        if is_best:
+            filename = self.model_name + '_model_best.pth.tar'
+            shutil.copyfile(
+                ckpt_path, os.path.join(self.ckpt_dir, filename)
+            )
 
     def load_checkpoint(self):
         pass
