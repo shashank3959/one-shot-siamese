@@ -1,5 +1,6 @@
 import os
 import json
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -54,7 +55,11 @@ def resize_array(x, size):
     return res
 
 
-def img2array(data_path, gray=False, desired_size=None, expand=False, view=False):
+def img2array(data_path,
+              gray=False,
+              desired_size=None,
+              expand=False,
+              view=False):
     """
     Util function for loading RGB or Gray images into a numpy array.
 
@@ -131,3 +136,43 @@ def save_config(config):
 
     with open(param_path, 'w') as fp:
         json.dump(config.__dict__, fp, indent=4, sort_keys=True)
+
+# adapted from https://stackoverflow.com/questions/31468117/python-3-can-pickle-handle-byte-objects-larger-than-4gb
+class MacOSFile(object):
+    def __init__(self, f):
+        self.f = f
+
+    def __getattr__(self, item):
+        return getattr(self.f, item)
+
+    def read(self, n):
+        if n >= (1 << 31):
+            buffer = bytearray(n)
+            idx = 0
+            while idx < n:
+                batch_size = min(n - idx, 1 << 31 - 1)
+                buffer[idx:idx + batch_size] = self.f.read(batch_size)
+                idx += batch_size
+            return buffer
+        return self.f.read(n)
+
+    def write(self, buffer):
+        n = len(buffer)
+        print("Writing {} total bytes".format(n))
+        idx = 0
+        while idx < n:
+            batch_size = min(n - idx, 1 << 31 - 1)
+            print("Writing bytes [{}, {}]".format(idx, idx+batch_size))
+            self.f.write(buffer[idx:idx + batch_size])
+            print("[!] Done")
+            idx += batch_size
+
+
+def pickle_dump(obj, file_path):
+    with open(file_path, "wb") as f:
+        return pickle.dump(obj, MacOSFile(f), protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def pickle_load(file_path):
+    with open(file_path, "rb") as f:
+        return pickle.load(MacOSFile(f))
