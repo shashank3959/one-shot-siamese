@@ -100,23 +100,43 @@ def array2img(x, gray=False):
     return Image.fromarray(x.astype('uint8'), 'RGB')
 
 
-def plot_images(images, gd_truth):
+def plot_omniglot_pairs(imgs, labels):
+    num_rows = imgs.shape[0]
+    num_cols = imgs.shape[1]
 
-    images = images.squeeze()
-    assert len(images) == len(gd_truth) == 9
+    fig, big_axes = plt.subplots(
+        figsize=(8.0, 8.0) , nrows=num_rows, ncols=1, sharey=True
+    )
 
-    # Create figure with sub-plots.
-    fig, axes = plt.subplots(3, 3)
+    for i, big_ax in enumerate(big_axes):
+        xlabel = 'Same' if labels[i] == 1 else 'Different'
+        big_ax.set_title(xlabel, fontsize=12)
 
-    for i, ax in enumerate(axes.flat):
-        # plot the image
-        ax.imshow(images[i], cmap="Greys_r")
+        # turn off axis lines and ticks of the big subplot
+        big_ax.tick_params(
+            labelcolor=(1.,1.,1., 0.0), top='off',
+            bottom='off', left='off', right='off'
+        )
+        big_ax._frameon = False
 
-        xlabel = "{}".format(gd_truth[i])
-        ax.set_xlabel(xlabel)
+    for i in range(num_rows):
+        # seperate the pair
+        left, right = imgs[i].squeeze()
+
+        # create left subplot
+        ax = fig.add_subplot(num_rows, num_cols, 2*i+1)
         ax.set_xticks([])
         ax.set_yticks([])
+        ax.imshow(left, cmap="Greys_r")
 
+        # create right subplot
+        ax = fig.add_subplot(num_rows, num_cols, 2*(i+1))
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.imshow(right, cmap="Greys_r")
+
+    fig.set_facecolor('w')
+    plt.tight_layout()
     plt.show()
 
 

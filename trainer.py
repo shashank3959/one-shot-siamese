@@ -39,7 +39,8 @@ class Trainer(object):
 
         # optimization params
         self.epochs = config.epochs
-        self.lr = config.lr
+        self.lr = config.init_lr
+        self.momentum = config.momentum
 
         # instantiate the model
         self.model = SiameseNet()

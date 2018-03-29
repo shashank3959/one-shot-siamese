@@ -3,7 +3,7 @@ import torch
 from trainer import Trainer
 from config import get_config
 from utils import prepare_dirs, save_config
-from data_loader import *
+from data_loader import get_train_valid_loader, get_test_loader
 
 
 def main(config):
@@ -20,9 +20,14 @@ def main(config):
 
     # instantiate data loaders
     if config.is_train:
-        data_loader = get_train_valid_loader()
+        data_loader = get_train_valid_loader(
+            config.data_dir, config.batch_size,
+            config.augment, **kwargs
+        )
     else:
-        data_loader = get_test_loader()
+        data_loader = get_test_loader(
+            config.data_dir, config.batch_size, **kwargs
+        )
 
     # instantiate trainer
     trainer = Trainer(config, data_loader)
