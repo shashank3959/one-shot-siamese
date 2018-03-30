@@ -1,7 +1,7 @@
 import argparse
 
 arg_lists = []
-parser = argparse.ArgumentParser(description='RAM')
+parser = argparse.ArgumentParser(description='Siamese Network')
 
 
 def str2bool(v):
@@ -28,18 +28,20 @@ data_arg.add_argument('--augment', type=str2bool, default=True,
 train_arg = add_argument_group('Training Params')
 train_arg.add_argument('--is_train', type=str2bool, default=True,
                        help='Whether to train or test the model')
-train_arg.add_argument('--momentum', type=float, default=0.9,
-                       help='Nesterov momentum value')
 train_arg.add_argument('--epochs', type=int, default=200,
                        help='# of epochs to train for')
-train_arg.add_argument('--init_lr', type=float, default=0.001,
-                       help='Initial learning rate value')
-train_arg.add_argument('--patience', type=int, default=100,
-                       help='Max # of epochs to wait for no validation improv')
+train_arg.add_argument('--init_momentum', type=float, default=0.5,
+                       help='Initial layer-wise momentum value')
+train_arg.add_argument('--lr_patience', type=int, default=1,
+                       help='Number of epochs to wait before reducing lr')
+train_arg.add_argument('--train_patience', type=int, default=20,
+                       help='Number of epochs to wait before stopping train')
 
 
 # other params
 misc_arg = add_argument_group('Misc.')
+misc_arg.add_argument('--num_model', type=int, default=1,
+                      help='Model number used for unique checkpointing')
 misc_arg.add_argument('--use_gpu', type=str2bool, default=False,
                       help="Whether to run on the GPU")
 misc_arg.add_argument('--best', type=str2bool, default=True,

@@ -149,16 +149,41 @@ def prepare_dirs(config):
             os.makedirs(path)
 
 
-def save_config(config):
-    model_name = 'siamese_net'
-    filename = model_name + '_params.json'
-    param_path = os.path.join(config.ckpt_dir, filename)
+def save_config(config, hyperparams):
+    num_model = get_num_model(config)
+    model_dir = os.path.join(config.ckpt_dir, num_model)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    filename = 'params.json'
+    param_path = os.path.join(model_dir, filename)
 
-    print("[*] Model Checkpoint Dir: {}".format(config.ckpt_dir))
+    print("[*] Model Checkpoint Dir: {}".format(model_dir))
     print("[*] Param Path: {}".format(param_path))
 
+    all_params = config.__dict__
+    all_params.update(hyperparams)
     with open(param_path, 'w') as fp:
-        json.dump(config.__dict__, fp, indent=4, sort_keys=True)
+        json.dump(all_params, fp, indent=4, sort_keys=True)
+
+
+def load_config(config):
+    num_model = get_num_model(config)
+    model_dir = os.path.join(config.ckpt_dir, num_model)
+    filename = 'params.json'
+    param_path = os.path.join(model_dir, filename)
+    params = json.load(open(param_path))
+    wanted_keys = [
+        'layer_end_momentums', 'layer_init_lrs', 'layer_l2_regs'
+    ]
+    hyperparams = dict((k, params[k]) for k in wanted_keys if k in params)
+    return hyperparams
+
+
+def get_num_model(config):
+    num_model = config.num_model
+    error_msg = "[!] model number must be >= 1"
+    assert num_model > 0, error_msg
+    return 'exp_' + str(num_model)
 
 
 # adapted from https://bit.ly/2pP5qki
