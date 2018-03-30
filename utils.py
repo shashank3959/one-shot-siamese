@@ -144,7 +144,9 @@ def plot_omniglot_pairs(imgs, labels, name=None, save=False):
 
 
 def prepare_dirs(config):
-    for path in [config.data_dir, config.ckpt_dir, config.logs_dir]:
+    for path in [config.ckpt_dir, config.logs_dir]:
+        num_model = get_num_model(config)
+        path = os.path.join(path, num_model)
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -152,18 +154,19 @@ def prepare_dirs(config):
 def save_config(config, hyperparams):
     num_model = get_num_model(config)
     model_dir = os.path.join(config.ckpt_dir, num_model)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
     filename = 'params.json'
     param_path = os.path.join(model_dir, filename)
 
-    print("[*] Model Checkpoint Dir: {}".format(model_dir))
-    print("[*] Param Path: {}".format(param_path))
+    if not os.path.isfile(param_path):
+        print("[*] Model Checkpoint Dir: {}".format(model_dir))
+        print("[*] Param Path: {}".format(param_path))
 
-    all_params = config.__dict__
-    all_params.update(hyperparams)
-    with open(param_path, 'w') as fp:
-        json.dump(all_params, fp, indent=4, sort_keys=True)
+        all_params = config.__dict__
+        all_params.update(hyperparams)
+        with open(param_path, 'w') as fp:
+            json.dump(all_params, fp, indent=4, sort_keys=True)
+    else:
+        raise ValueError
 
 
 def load_config(config):
@@ -172,6 +175,7 @@ def load_config(config):
     filename = 'params.json'
     param_path = os.path.join(model_dir, filename)
     params = json.load(open(param_path))
+    print("[*] Loaded layer hyperparameters.")
     wanted_keys = [
         'layer_end_momentums', 'layer_init_lrs', 'layer_l2_regs'
     ]
@@ -181,7 +185,7 @@ def load_config(config):
 
 def get_num_model(config):
     num_model = config.num_model
-    error_msg = "[!] model number must be >= 1"
+    error_msg = "[!] model number must be >= 1."
     assert num_model > 0, error_msg
     return 'exp_' + str(num_model)
 

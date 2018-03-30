@@ -6,6 +6,7 @@ from torch.utils.data.dataset import Dataset
 
 class Omniglot(Dataset):
     def __init__(self, data_dir, mode='train', augment=False):
+        self.mode = mode
         processed = data_dir + 'processed/'
 
         if mode is 'train':
@@ -28,11 +29,16 @@ class Omniglot(Dataset):
 
     def __getitem__(self, index):
         img = torch.from_numpy(self.X[index])
-        label = torch.from_numpy(self.y[index])
+        label = torch.from_numpy(self.y[index]).float()
         return (img, label)
 
     def __len__(self):
-        return 2 * len(self.X)
+        if self.mode is 'train':
+            return 2 * len(self.X)
+        elif self.mode is 'valid':
+            return 2 * 14 * len(self.X)
+        else:
+            return 2 * 20 * len(self.X)
 
 
 def get_train_valid_loader(data_dir,
@@ -66,7 +72,7 @@ def get_train_valid_loader(data_dir,
     # create valid loader
     valid_dataset = Omniglot(data_dir, mode='valid')
     valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, batch_size=batch_size,
+        valid_dataset, batch_size=1,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
@@ -94,7 +100,7 @@ def get_test_loader(data_dir,
     """
     dataset = Omniglot(data_dir, mode='test')
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size,
+        dataset, batch_size=1,
         num_workers=num_workers, pin_memory=pin_memory,
     )
     return loader

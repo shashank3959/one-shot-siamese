@@ -90,6 +90,6 @@ class SiameseNet(nn.Module):
         # score the similarity between the 2 encodings
         scores = self.fc2(diff)
 
-        # transform to a probability and return
-        probas = F.sigmoid(scores)
-        return probas
+        # return scores directly and use bce_with_logits
+        # for increased numerical stability
+        return scores

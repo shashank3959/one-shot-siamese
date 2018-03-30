@@ -32,6 +32,8 @@ def main(config):
 
     # sample 3 layer wise hyperparams if firs time training
     if config.is_train and not config.resume:
+        print("[*] Sampling layer hyperparameters.")
+
         layer_hyperparams = {
             'layer_init_lrs': [],
             'layer_end_momentums': [],
@@ -49,11 +51,22 @@ def main(config):
             layer_hyperparams['layer_l2_regs'].append(reg)
 
         # save
-        save_config(config, layer_hyperparams)
+        try:
+            save_config(config, layer_hyperparams)
+        except ValueError:
+            print(
+                "[!] Samples already exist. Either change the model number,",
+                "or delete the json file and rerun.",
+                sep=' '
+            )
+            return
     # else load it from config file
     else:
-        print("[*] Loaded layer hyperparameters")
-        layer_hyperparams = load_config(config)
+        try:
+            layer_hyperparams = load_config(config)
+        except FileNotFoundError:
+            print("[!] No previous saved config. Set resume to False.")
+            return
 
     # instantiate trainer
     trainer = Trainer(config, data_loader, layer_hyperparams)

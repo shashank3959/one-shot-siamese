@@ -63,7 +63,7 @@ class Trainer(object):
 
         # path params
         self.ckpt_dir = os.path.join(config.ckpt_dir, self.num_model)
-        self.logs_dir = config.logs_dir
+        self.logs_dir = os.path.join(config.logs_dir, self.num_model)
 
         # misc params
         self.resume = config.resume
@@ -117,25 +117,40 @@ class Trainer(object):
         if self.resume:
             self.load_checkpoint(best=False)
 
+        # switch to train model
+        self.model.train()
+
+        # create train and validation log files
+        optim_file = open(os.path.join(self.logs_dir, 'optim.csv'), 'w')
+        train_file = open(os.path.join(self.logs_dir, 'train.csv'), 'w')
+        valid_file = open(os.path.join(self.logs_dir, 'valid.csv'), 'w')
+
         print("\n[*] Train on {} samples, validate on {} samples".format(
             self.num_train, self.num_valid)
         )
 
         for epoch in range(self.start_epoch, self.epochs):
+            # decay lrs, temper momentums
+            self.scheduler.step()
+            self.temper_momentum(epoch)
+            for i, param_group in enumerate(self.optimizer.param_groups):
+                self.lrs[i] = param_group['lr']
+
+            # log lrs and momentums
+            optim_file.write('{},{},{}'.format(
+                epoch, *self.momentums, *self.lrs)
+            )
+
             print(
                 '\nEpoch: {}/{} - LR: {:.6f}'.format(
                     epoch+1, self.epochs, self.lr)
             )
 
-            # decay lrs, temper momentums
-            self.scheduler.step()
-            self.temper_momentum(epoch)
-
             # train for one epoch
-            train_loss, train_acc = self.train_one_epoch(epoch)
+            train_loss, train_acc = self.train_one_epoch(epoch, train_file)
 
             # validate
-            valid_loss, valid_acc = self.validate(epoch)
+            valid_loss, valid_acc = self.validate(epoch, valid_file)
 
             # check for improvement
             is_best = valid_acc > self.best_valid_acc
@@ -160,7 +175,12 @@ class Trainer(object):
                 }, is_best
             )
 
-    def train_one_epoch(self, epoch):
+        # release resources
+        optim_file.close()
+        train_file.close()
+        valid_file.close()
+
+    def train_one_epoch(self, epoch, file):
         train_batch_time = AverageMeter()
         train_losses = AverageMeter()
         train_accs = AverageMeter()
@@ -172,19 +192,66 @@ class Trainer(object):
                     x, y = x.cuda(), y.cuda()
                 x, y, = Variable(x), Variable(y)
 
-            self.batch_size = x.shape[0]
+                # split input pairs along the batch dimension
+                x1, x2 = x[:, 0], x[:, 1]
 
-            # split input pairs along the batch dimension
-            x1, x2 = x[:, 0], x[:, 1]
+                # forward pass
+                out = self.model(x1, x2)
 
-            # forward pass
-            out = self.model(x1, x2)
+                # compute loss
+                loss = F.binary_cross_entropy_with_logits(out, y)
 
+                # compute accuracy
+                log_probas = F.sigmoid(out)
+                predicted = torch.max(log_probas, 1)[1]
+                correct = (predicted == y).float()
+                acc = 100 * (correct.sum() / len(y))
 
+                # store loss and accuracy
+                batch_size = x.shape[0]
+                train_losses.update(loss.data[0], batch_size)
+                train_accs.update(acc.data[0], batch_size)
 
+                # compute gradients and update
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+                # measure elapsed time
+                toc = time.time()
+                train_batch_time.update(toc-tic)
+                tic = time.time()
+
+                pbar.set_description(
+                    (
+                        "{:.1f}s - loss: {:.3f} - acc: {:.3f}".format(
+                            train_batch_time.val,
+                            train_losses.val,
+                            train_accs.val,
+                        )
+                    )
+                )
+                pbar.update(batch_size)
+
+                # log all info
+                iter = (epoch * len(train_loader)) + i
+                file.write('{},{},{}'.format(
+                    iter, train_losses.val, train_accs.val)
+                )
+
+            return (train_losses.avg, train_accs.avg)
 
     def validate(self, epoch):
-        pass
+        valid_losses = AverageMeter()
+        valid_accs = AverageMeter()
+
+        # switch to evaluate mode
+        self.model.eval()
+
+        for i, (x, y) in enumerate(self.valid_loader):
+            if self.use_gpu:
+                x, y = x.cuda(), y.cuda()
+            x, y = Variable(x), Variable(y)
 
     def test(self):
         pass
