@@ -1,6 +1,7 @@
 import os
 import json
 import pickle
+import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -144,11 +145,15 @@ def plot_omniglot_pairs(imgs, labels, name=None, save=False):
 
 
 def prepare_dirs(config):
+    num_model = get_num_model(config)
     for path in [config.ckpt_dir, config.logs_dir]:
-        num_model = get_num_model(config)
         path = os.path.join(path, num_model)
         if not os.path.exists(path):
             os.makedirs(path)
+        if config.flush:
+            shutil.rmtree(path)
+            if not os.path.exists(path):
+                os.makedirs(path)
 
 
 def save_config(config, hyperparams):

@@ -40,6 +40,8 @@ train_arg.add_argument('--train_patience', type=int, default=20,
 
 # other params
 misc_arg = add_argument_group('Misc.')
+misc_arg.add_argument('--flush', type=str2bool, default=False,
+                      help='Whether to delete ckpt + log files for model no.')
 misc_arg.add_argument('--num_model', type=int, default=1, required=True,
                       help='Model number used for unique checkpointing')
 misc_arg.add_argument('--use_gpu', type=str2bool, default=False,

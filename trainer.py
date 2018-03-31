@@ -39,7 +39,7 @@ class Trainer(object):
 
         if config.is_train:
             self.train_loader = data_loader[0]
-            self.valid_loader = data_loader[0]
+            self.valid_loader = data_loader[1]
             self.num_train = len(self.train_loader.dataset)
             self.num_valid = len(self.valid_loader.dataset)
         else:
@@ -52,7 +52,7 @@ class Trainer(object):
 
         # model params
         self.num_params = sum(
-            [p.data.nelement() for p in self.model.parameters()]
+            [p.nelement() for p in self.model.parameters()]
         )
         self.num_model = get_num_model(config)
         self.num_layers = len(list(self.model.children()))
@@ -133,8 +133,15 @@ class Trainer(object):
             self.decay_lr()
             self.temper_momentum(epoch)
 
+            print(self.momentums)
+            print(self.lrs)
+
             # log lrs and momentums
-            optim_file.write('{},{},{}'.format(
+            n = self.num_layers
+            msg = (
+                "{}, " + ", ".join(["{}"] * n) + ", " + ", ".join(["{}"] * n)
+            )
+            optim_file.write(msg.format(
                 epoch, *self.momentums, *self.lrs)
             )
 
@@ -196,7 +203,7 @@ class Trainer(object):
 
                 # store batch statistics
                 toc = time.time()
-                train_losses.update(loss.data[0], batch_size)
+                train_losses.update(loss.item(), batch_size)
                 train_batch_time.update(toc-tic)
                 tic = time.time()
 
@@ -231,27 +238,28 @@ class Trainer(object):
             for i, (x, y) in enumerate(self.valid_loader):
                 if self.use_gpu:
                     x, y = x.cuda(), y.cuda()
-                x, y = Variable(x, volatile=True), Variable(y, volatile=True)
+                with torch.no_grad():
+                    x, y = Variable(x), Variable(y)
 
-                batch_size = x.shape[0]
-                x = x.squeeze(dim=0)
-                y = y.squeeze(dim=0)
+                    batch_size = x.shape[0]
+                    x = x.squeeze(dim=0)
+                    y = y.squeeze(dim=0)
 
-                # split input pairs along the batch dimension
-                x1, x2 = x[:, 0], x[:, 1]
+                    # split input pairs along the batch dimension
+                    x1, x2 = x[:, 0], x[:, 1]
 
-                # compute log probabilities
-                out = self.model(x1, x2)
+                    # compute log probabilities
+                    out = self.model(x1, x2)
                 log_probas = F.sigmoid(out)
 
                 # get index of max log prob
                 pred = log_probas.data.max(0)[1]
-                correct += pred.eq(y.long().data).long().cpu()
+                correct += pred.eq(y.long()).long().cpu()
                 acc = (100. * correct) / (i+1)
 
                 # store batch statistics
                 toc = time.time()
-                valid_accs.update(acc)
+                valid_accs.update(acc.item(), batch_size)
                 valid_batch_time.update(toc-tic)
                 tic = time.time()
 
@@ -265,7 +273,7 @@ class Trainer(object):
                 )
                 pbar.update(batch_size)
 
-                # log loss and acc
+                # log acc
                 iter = (epoch * len(self.valid_loader)) + i
                 file.write('{},{}\n'.format(
                     iter, valid_accs.val)
