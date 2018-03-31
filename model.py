@@ -51,7 +51,7 @@ class SiameseNet(nn.Module):
         out = F.relu(F.max_pool2d(self.conv1(x), 2))
         out = F.relu(F.max_pool2d(self.conv2(out), 2))
         out = F.relu(F.max_pool2d(self.conv3(out), 2))
-        out = F.relu(self.conv4(out), 2)
+        out = F.relu(self.conv4(out))
         out = out.view(out.shape[0], -1)
         out = F.sigmoid(self.fc1(out))
         return out

@@ -7,6 +7,7 @@ from torch.optim.lr_scheduler import StepLR
 import os
 import time
 import pickle
+import shutil
 
 from tqdm import tqdm
 from model import SiameseNet
@@ -76,6 +77,7 @@ class Trainer(object):
         self.start_epoch = 0
         self.lr_patience = config.lr_patience
         self.train_patience = config.train_patience
+        self.counter = 0
 
         # grab layer-wise hyperparams
         self.init_lrs = self.layer_hyperparams['layer_init_lrs']
@@ -148,11 +150,11 @@ class Trainer(object):
 
             # check for improvement
             is_best = valid_acc > self.best_valid_acc
-            msg = "train loss: {:.3f} - train acc: {:.3f} "
-            msg += "- val loss: {:.3f} - val acc: {:.3f}"
+            msg = "train loss: {:.3f} - val acc: {:.3f}"
             if is_best:
                 msg += " [*]"
-            print(msg.format(train_loss, train_acc, valid_loss, valid_acc))
+                self.counter = 0
+            print(msg.format(train_loss, valid_acc))
 
             # checkpoint the model
             if not is_best:
@@ -164,11 +166,10 @@ class Trainer(object):
             self.save_checkpoint(
                 {'epoch': epoch + 1,
                  'model_state': self.model.state_dict(),
-                 'optim_state': self.optim.state_dict(),
+                 'optim_state': self.optimizer.state_dict(),
                  'best_valid_acc': self.best_valid_acc,
                 }, is_best
             )
-
         # release resources
         optim_file.close()
         train_file.close()
@@ -212,7 +213,7 @@ class Trainer(object):
                 )
                 pbar.update(batch_size)
 
-                # log loss and acc
+                # log loss
                 iter = (epoch * len(self.train_loader)) + i
                 file.write('{},{}\n'.format(
                     iter, train_losses.val)
@@ -233,7 +234,6 @@ class Trainer(object):
             for i, (x, y) in enumerate(self.valid_loader):
                 if self.use_gpu:
                     x, y = x.cuda(), y.cuda()
-
                 with torch.no_grad():
                     batch_size = x.shape[0]
                     x = x.squeeze(dim=0)
@@ -248,12 +248,12 @@ class Trainer(object):
 
                 # get index of max log prob
                 pred = log_probas.data.max(0)[1]
-                correct += pred.eq(y.long()).long().cpu()
+                correct += pred.eq(y.data.long()).long().cpu().item()
                 acc = (100. * correct) / (i+1)
 
                 # store batch statistics
                 toc = time.time()
-                valid_accs.update(acc.item(), batch_size)
+                valid_accs.update(acc, batch_size)
                 valid_batch_time.update(toc-tic)
                 tic = time.time()
 

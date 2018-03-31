@@ -2,6 +2,9 @@
 
 **WORK IN PROGRESS**
 
+- [ ] on-the-fly data augmentation
+- [ ] read csv log files and plot
+
 ## Omniglot Dataset
 
 <p align="center">

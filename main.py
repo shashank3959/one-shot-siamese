@@ -67,8 +67,7 @@ def main(config):
     if config.is_train:
         trainer.train()
     else:
-        pass
-        # trainer.test()
+        trainer.test()
 
 
 if __name__ == '__main__':
