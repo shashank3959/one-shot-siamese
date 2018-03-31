@@ -33,12 +33,7 @@ class Omniglot(Dataset):
         return (img, label)
 
     def __len__(self):
-        if self.mode is 'train':
-            return 2 * len(self.X)
-        elif self.mode is 'valid':
-            return 2 * 14 * len(self.X)
-        else:
-            return 2 * 20 * len(self.X)
+        return len(self.X)
 
 
 def get_train_valid_loader(data_dir,
@@ -80,7 +75,6 @@ def get_train_valid_loader(data_dir,
 
 
 def get_test_loader(data_dir,
-                    batch_size,
                     num_workers=4,
                     pin_memory=False):
     """
@@ -92,7 +86,6 @@ def get_test_loader(data_dir,
     Args
     ----
     - data_dir: path directory to the dataset.
-    - batch_size: how many samples per batch to load.
     - num_workers: number of subprocesses to use when loading the dataset. Set
       to `1` if using GPU.
     - pin_memory: whether to copy tensors into CUDA pinned memory. Set it to

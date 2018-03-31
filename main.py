@@ -12,25 +12,21 @@ def main(config):
     # ensure directories are setup
     prepare_dirs(config)
 
-    # ensure reproducibility
+    # create Omniglot data loaders
     torch.manual_seed(config.random_seed)
     kwargs = {}
     if config.use_gpu:
         torch.cuda.manual_seed(config.random_seed)
         kwargs = {'num_workers': 1, 'pin_memory': True}
-
-    # instantiate data loaders
     if config.is_train:
         data_loader = get_train_valid_loader(
             config.data_dir, config.batch_size,
             config.augment, **kwargs
         )
     else:
-        data_loader = get_test_loader(
-            config.data_dir, config.batch_size, **kwargs
-        )
+        data_loader = get_test_loader(config.data_dir, **kwargs)
 
-    # sample 3 layer wise hyperparams if firs time training
+    # sample 3 layer wise hyperparams if first time training
     if config.is_train and not config.resume:
         print("[*] Sampling layer hyperparameters.")
 
@@ -49,8 +45,6 @@ def main(config):
             layer_hyperparams['layer_init_lrs'].append(lr)
             layer_hyperparams['layer_end_momentums'].append(mom)
             layer_hyperparams['layer_l2_regs'].append(reg)
-
-        # save
         try:
             save_config(config, layer_hyperparams)
         except ValueError:
@@ -65,17 +59,13 @@ def main(config):
         try:
             layer_hyperparams = load_config(config)
         except FileNotFoundError:
-            print("[!] No previous saved config. Set resume to False.")
+            print("[!] No previously saved config. Set resume to False.")
             return
 
-    # instantiate trainer
     trainer = Trainer(config, data_loader, layer_hyperparams)
 
-    # either train
     if config.is_train:
-        pass
-        # trainer.train()
-    # or load a pretrained model and test
+        trainer.train()
     else:
         pass
         # trainer.test()

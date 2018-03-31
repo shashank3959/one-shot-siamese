@@ -1,11 +1,12 @@
 one shot learning: learning a class from a single labeled example.
 
 disadvantages of typical (ConvNet + Softmax) approach:
-    - if database increases (add a new class), must retrain the network
-    - extremely data hungry:
-        - need crap ton of data of every class to work well
-        - collecting and labelling data is expensive
-        - potential overfit if dataset is not large enough
+
+* if database increases (add a new class), must retrain the network
+* extremely data hungry:
+    * need crap ton of data of every class to work well
+    * collecting and labelling data is expensive
+    * potential overfit if dataset is not large enough
 
 ## Losses
 
@@ -25,7 +26,7 @@ The problem of mapping a set of high-dimensional points onto a low dimensional m
 
 ## Some Ideas
 
-- insert STN to increase effectiveness of convnet
+- insert STN to increase effectiveness of convnet?
 - use distillation to decrease footprint of finalized network
     - FitNet
     - adversarial distillation
@@ -37,6 +38,8 @@ Omniglot consists in 1623 different handwritten characters (from 50 alphabets). 
 - background set: contains 40 alphabets. We use this set, with normal train, valid, test splits to tune the model for verification.
 - evaluation set: contains 10 alphabets. We use this set to measure the one-shot classification performance.
 
+**TODO: add K-shot, N-way classification explanation**
+
 The authors consider all 50 alphabets together.
 
 - train: 30/50 (60%) of the alphabets, 12 of the 20 drawers. Uniform number of training examples per alphabet so that each alphabet receives equal representation. Hallucinate 8 affine transformations for each training example. 3 datasets of sizes 30k, 90k, 150k. With the hallucinations, these sizes get multiplied by 9: 270k, 810k, 1,350k.
@@ -47,4 +50,3 @@ The authors consider all 50 alphabets together.
 
 - relu placed after maxpool to reduce the # of computation by 75%
 - weight init strategy possibly changed to he et al since it uses relu activation
-- currently, I am forwarding both input batch pairs sequentially. I could reduce the batch size and forward them together, then use indexing to select the left pairs, and the right pairs and continue as previously. This would probably be more efficient.

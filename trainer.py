@@ -2,7 +2,6 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
-
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import StepLR
 
@@ -47,7 +46,6 @@ class Trainer(object):
             self.test_loader = data_loader
             self.num_test = len(self.test_loader.dataset)
 
-        # instantiate the model
         self.model = SiameseNet()
         if config.use_gpu:
             self.model.cuda()
@@ -87,7 +85,10 @@ class Trainer(object):
         self.l2_regs = self.layer_hyperparams['layer_l2_regs']
 
         # compute temper rate for momentum
-        f = lambda max, min: (max - min) / (self.epochs-1)
+        if self.epochs == 1:
+            f = lambda max, min: min
+        else:
+            f = lambda max, min: (max - min) / (self.epochs-1)
         self.momentum_temper_rates = [
             f(x, y) for x,y in zip(self.end_momentums, self.init_momentums)
         ]
@@ -113,11 +114,10 @@ class Trainer(object):
         )
 
     def train(self):
-        # load the most recent checkpoint
         if self.resume:
             self.load_checkpoint(best=False)
 
-        # switch to train model
+        # switch to train mode
         self.model.train()
 
         # create train and validation log files
@@ -130,27 +130,18 @@ class Trainer(object):
         )
 
         for epoch in range(self.start_epoch, self.epochs):
-            # decay lrs, temper momentums
-            self.scheduler.step()
+            self.decay_lr()
             self.temper_momentum(epoch)
-            for i, param_group in enumerate(self.optimizer.param_groups):
-                self.lrs[i] = param_group['lr']
 
             # log lrs and momentums
             optim_file.write('{},{},{}'.format(
                 epoch, *self.momentums, *self.lrs)
             )
 
-            print(
-                '\nEpoch: {}/{} - LR: {:.6f}'.format(
-                    epoch+1, self.epochs, self.lr)
-            )
+            print('\nEpoch: {}/{}'.format(epoch+1, self.epochs))
 
-            # train for one epoch
-            train_loss, train_acc = self.train_one_epoch(epoch, train_file)
-
-            # validate
-            valid_loss, valid_acc = self.validate(epoch, valid_file)
+            train_loss = self.train_one_epoch(epoch, train_file)
+            valid_acc = self.validate(epoch, valid_file)
 
             # check for improvement
             is_best = valid_acc > self.best_valid_acc
@@ -160,7 +151,7 @@ class Trainer(object):
                 msg += " [*]"
             print(msg.format(train_loss, train_acc, valid_loss, valid_acc))
 
-            # ckpt the model
+            # checkpoint the model
             if not is_best:
                 self.counter += 1
             if self.counter > self.train_patience:
@@ -183,7 +174,6 @@ class Trainer(object):
     def train_one_epoch(self, epoch, file):
         train_batch_time = AverageMeter()
         train_losses = AverageMeter()
-        train_accs = AverageMeter()
 
         tic = time.time()
         with tqdm(total=self.num_train) as pbar:
@@ -193,65 +183,95 @@ class Trainer(object):
                 x, y, = Variable(x), Variable(y)
 
                 # split input pairs along the batch dimension
+                batch_size = x.shape[0]
                 x1, x2 = x[:, 0], x[:, 1]
 
-                # forward pass
                 out = self.model(x1, x2)
-
-                # compute loss
                 loss = F.binary_cross_entropy_with_logits(out, y)
-
-                # compute accuracy
-                log_probas = F.sigmoid(out)
-                predicted = torch.max(log_probas, 1)[1]
-                correct = (predicted == y).float()
-                acc = 100 * (correct.sum() / len(y))
-
-                # store loss and accuracy
-                batch_size = x.shape[0]
-                train_losses.update(loss.data[0], batch_size)
-                train_accs.update(acc.data[0], batch_size)
 
                 # compute gradients and update
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-                # measure elapsed time
+                # store batch statistics
                 toc = time.time()
+                train_losses.update(loss.data[0], batch_size)
                 train_batch_time.update(toc-tic)
                 tic = time.time()
 
                 pbar.set_description(
                     (
-                        "{:.1f}s - loss: {:.3f} - acc: {:.3f}".format(
+                        "{:.1f}s - loss: {:.3f}".format(
                             train_batch_time.val,
                             train_losses.val,
-                            train_accs.val,
                         )
                     )
                 )
                 pbar.update(batch_size)
 
-                # log all info
-                iter = (epoch * len(train_loader)) + i
-                file.write('{},{},{}'.format(
-                    iter, train_losses.val, train_accs.val)
+                # log loss and acc
+                iter = (epoch * len(self.train_loader)) + i
+                file.write('{},{}\n'.format(
+                    iter, train_losses.val)
                 )
 
-            return (train_losses.avg, train_accs.avg)
+            return train_losses.avg
 
-    def validate(self, epoch):
-        valid_losses = AverageMeter()
+    def validate(self, epoch, file):
+        valid_batch_time = AverageMeter()
         valid_accs = AverageMeter()
 
         # switch to evaluate mode
         self.model.eval()
 
-        for i, (x, y) in enumerate(self.valid_loader):
-            if self.use_gpu:
-                x, y = x.cuda(), y.cuda()
-            x, y = Variable(x), Variable(y)
+        tic = time.time()
+        with tqdm(total=self.num_valid) as pbar:
+            correct = 0
+            for i, (x, y) in enumerate(self.valid_loader):
+                if self.use_gpu:
+                    x, y = x.cuda(), y.cuda()
+                x, y = Variable(x, volatile=True), Variable(y, volatile=True)
+
+                batch_size = x.shape[0]
+                x = x.squeeze(dim=0)
+                y = y.squeeze(dim=0)
+
+                # split input pairs along the batch dimension
+                x1, x2 = x[:, 0], x[:, 1]
+
+                # compute log probabilities
+                out = self.model(x1, x2)
+                log_probas = F.sigmoid(out)
+
+                # get index of max log prob
+                pred = log_probas.data.max(0)[1]
+                correct += pred.eq(y.long().data).long().cpu()
+                acc = (100. * correct) / (i+1)
+
+                # store batch statistics
+                toc = time.time()
+                valid_accs.update(acc)
+                valid_batch_time.update(toc-tic)
+                tic = time.time()
+
+                pbar.set_description(
+                    (
+                        "{:.1f}s - acc: {:.3f}".format(
+                            valid_batch_time.val,
+                            valid_accs.val,
+                        )
+                    )
+                )
+                pbar.update(batch_size)
+
+                # log loss and acc
+                iter = (epoch * len(self.valid_loader)) + i
+                file.write('{},{}\n'.format(
+                    iter, valid_accs.val)
+                )
+
+            return valid_accs.avg
 
     def test(self):
         pass
@@ -268,6 +288,15 @@ class Trainer(object):
         ]
         for i, param_group in enumerate(self.optimizer.param_groups):
             param_group['momentum'] = self.momentums[i]
+
+    def decay_lr(self):
+        """
+        This function linearly decays the per-layer lr over a set
+        amount of epochs.
+        """
+        self.scheduler.step()
+        for i, param_group in enumerate(self.optimizer.param_groups):
+            self.lrs[i] = param_group['lr']
 
     def save_checkpoint(self, state, is_best):
         filename = 'model_ckpt.tar'
