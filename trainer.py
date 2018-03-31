@@ -2,7 +2,6 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
-from torch.autograd import Variable
 from torch.optim.lr_scheduler import StepLR
 
 import os
@@ -133,9 +132,6 @@ class Trainer(object):
             self.decay_lr()
             self.temper_momentum(epoch)
 
-            print(self.momentums)
-            print(self.lrs)
-
             # log lrs and momentums
             n = self.num_layers
             msg = (
@@ -187,7 +183,6 @@ class Trainer(object):
             for i, (x, y) in enumerate(self.train_loader):
                 if self.use_gpu:
                     x, y = x.cuda(), y.cuda()
-                x, y, = Variable(x), Variable(y)
 
                 # split input pairs along the batch dimension
                 batch_size = x.shape[0]
@@ -238,9 +233,8 @@ class Trainer(object):
             for i, (x, y) in enumerate(self.valid_loader):
                 if self.use_gpu:
                     x, y = x.cuda(), y.cuda()
-                with torch.no_grad():
-                    x, y = Variable(x), Variable(y)
 
+                with torch.no_grad():
                     batch_size = x.shape[0]
                     x = x.squeeze(dim=0)
                     y = y.squeeze(dim=0)

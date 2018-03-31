@@ -20,7 +20,7 @@ data_arg.add_argument('--batch_size', type=int, default=32,
                       help='# of images in each batch of data')
 data_arg.add_argument('--num_workers', type=int, default=4,
                       help='# of subprocesses to use for data loading')
-data_arg.add_argument('--augment', type=str2bool, default=True,
+data_arg.add_argument('--augment', type=str2bool, default=False,
                       help='Whether to use data augmentation for train data')
 
 
