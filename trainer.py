@@ -2,11 +2,11 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
+from torch.autograd import Variable
 from torch.optim.lr_scheduler import StepLR
 
 import os
 import time
-import pickle
 import shutil
 
 from tqdm import tqdm
@@ -52,7 +52,7 @@ class Trainer(object):
 
         # model params
         self.num_params = sum(
-            [p.nelement() for p in self.model.parameters()]
+            [p.data.nelement() for p in self.model.parameters()]
         )
         self.num_model = get_num_model(config)
         self.num_layers = len(list(self.model.children()))
@@ -91,7 +91,7 @@ class Trainer(object):
         else:
             f = lambda max, min: (max - min) / (self.epochs-1)
         self.momentum_temper_rates = [
-            f(x, y) for x,y in zip(self.end_momentums, self.init_momentums)
+            f(x, y) for x, y in zip(self.end_momentums, self.init_momentums)
         ]
 
         # set global learning rates and momentums
@@ -167,10 +167,11 @@ class Trainer(object):
                 return
             self.best_valid_acc = max(valid_acc, self.best_valid_acc)
             self.save_checkpoint(
-                {'epoch': epoch + 1,
-                 'model_state': self.model.state_dict(),
-                 'optim_state': self.optimizer.state_dict(),
-                 'best_valid_acc': self.best_valid_acc,
+                {
+                    'epoch': epoch + 1,
+                    'model_state': self.model.state_dict(),
+                    'optim_state': self.optimizer.state_dict(),
+                    'best_valid_acc': self.best_valid_acc,
                 }, is_best
             )
         # release resources
@@ -187,6 +188,7 @@ class Trainer(object):
             for i, (x, y) in enumerate(self.train_loader):
                 if self.use_gpu:
                     x, y = x.cuda(), y.cuda()
+                x, y = Variable(x), Variable(y)
 
                 # split input pairs along the batch dimension
                 batch_size = x.shape[0]
@@ -202,7 +204,7 @@ class Trainer(object):
 
                 # store batch statistics
                 toc = time.time()
-                train_losses.update(loss.item(), batch_size)
+                train_losses.update(loss.data[0], batch_size)
                 train_batch_time.update(toc-tic)
                 tic = time.time()
 
@@ -237,16 +239,17 @@ class Trainer(object):
             for i, (x, y) in enumerate(self.valid_loader):
                 if self.use_gpu:
                     x, y = x.cuda(), y.cuda()
-                with torch.no_grad():
-                    batch_size = x.shape[0]
-                    x = x.squeeze(dim=0)
-                    y = y.squeeze(dim=0)
+                x, y = Variable(x, volatile=True), Variable(y, volatile=True)
 
-                    # split input pairs along the batch dimension
-                    x1, x2 = x[:, 0], x[:, 1]
+                batch_size = x.shape[0]
+                x = x.squeeze(dim=0)
+                y = y.squeeze(dim=0)
 
-                    # compute log probabilities
-                    out = self.model(x1, x2)
+                # split input pairs along the batch dimension
+                x1, x2 = x[:, 0], x[:, 1]
+
+                # compute log probabilities
+                out = self.model(x1, x2)
                 log_probas = F.sigmoid(out)
 
                 # get index of max log prob
@@ -320,7 +323,7 @@ class Trainer(object):
         if epoch == 0:
             return
         self.momentums = [
-            x + y for x,y in zip(self.momentums, self.momentum_temper_rates)
+            x + y for x, y in zip(self.momentums, self.momentum_temper_rates)
         ]
         for i, param_group in enumerate(self.optimizer.param_groups):
             param_group['momentum'] = self.momentums[i]

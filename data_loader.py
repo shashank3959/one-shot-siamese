@@ -60,14 +60,14 @@ def get_train_valid_loader(data_dir,
     # create train loader
     train_dataset = Omniglot(data_dir, mode='train', augment=augment)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size,
+        train_dataset, batch_size=batch_size, shuffle=True,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
     # create valid loader
     valid_dataset = Omniglot(data_dir, mode='valid')
     valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, batch_size=1,
+        valid_dataset, batch_size=1, shuffle=True,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
