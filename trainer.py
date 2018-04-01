@@ -98,16 +98,19 @@ class Trainer(object):
         self.lrs = self.init_lrs
         self.momentums = self.init_momentums
 
-        # initialize optimizer
-        optim_dict = []
-        for i, layer in enumerate(self.model.children()):
-            group = {}
-            group['params'] = layer.parameters()
-            group['lr'] = self.lrs[i]
-            group['momentum'] = self.momentums[i]
-            group['weight_decay'] = self.l2_regs[i]
-            optim_dict.append(group)
-        self.optimizer = optim.SGD(optim_dict)
+        # # initialize optimizer
+        # optim_dict = []
+        # for i, layer in enumerate(self.model.children()):
+        #     group = {}
+        #     group['params'] = layer.parameters()
+        #     group['lr'] = self.lrs[i]
+        #     group['momentum'] = self.momentums[i]
+        #     group['weight_decay'] = self.l2_regs[i]
+        #     optim_dict.append(group)
+        # self.optimizer = optim.SGD(optim_dict)
+        self.optimizer = optim.Adam(
+            self.model.parameters(), lr=3e-4, weight_decay=4e-4,
+        )
 
         # learning rate scheduler
         self.scheduler = StepLR(
@@ -131,17 +134,17 @@ class Trainer(object):
         )
 
         for epoch in range(self.start_epoch, self.epochs):
-            self.decay_lr()
-            self.temper_momentum(epoch)
-
-            # log lrs and momentums
-            n = self.num_layers
-            msg = (
-                "{}, " + ", ".join(["{}"] * n) + ", " + ", ".join(["{}"] * n)
-            )
-            optim_file.write(msg.format(
-                epoch, *self.momentums, *self.lrs)
-            )
+            # self.decay_lr()
+            # self.temper_momentum(epoch)
+            #
+            # # log lrs and momentums
+            # n = self.num_layers
+            # msg = (
+            #     "{}, " + ", ".join(["{}"] * n) + ", " + ", ".join(["{}"] * n)
+            # )
+            # optim_file.write(msg.format(
+            #     epoch, *self.momentums, *self.lrs)
+            # )
 
             print('\nEpoch: {}/{}'.format(epoch+1, self.epochs))
 
@@ -276,7 +279,38 @@ class Trainer(object):
             return valid_accs.avg
 
     def test(self):
-        pass
+        # load best model
+        self.load_checkpoint(best=self.best)
+
+        # switch to evaluate mode
+        self.model.eval()
+
+        correct = 0
+        for i, (x, y) in enumerate(self.test_loader):
+            if self.use_gpu:
+                x, y = x.cuda(), y.cuda()
+            x, y = Variable(x, volatile=True), Variable(y, volatile=True)
+
+            x = x.squeeze(dim=0)
+            y = y.squeeze(dim=0)
+
+            # split input pairs along the batch dimension
+            x1, x2 = x[:, 0], x[:, 1]
+
+            # compute log probabilities
+            out = self.model(x1, x2)
+            log_probas = F.sigmoid(out)
+
+            # get index of max log prob
+            pred = log_probas.data.max(0)[1]
+            correct += pred.eq(y.data.long()).long().cpu()[0]
+
+        perc = (100. * correct) / self.num_test
+        print(
+            "[*] Test Acc: {}/{} ({:.2f}%)".format(
+                correct, self.num_test, perc
+            )
+        )
 
     def temper_momentum(self, epoch):
         """

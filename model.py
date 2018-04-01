@@ -25,14 +25,22 @@ class SiameseNet(nn.Module):
         self.fc1 = nn.Linear(9216, 4096)
         self.fc2 = nn.Linear(4096, 1)
 
+        # self.conv1_bn = nn.BatchNorm2d(64)
+        # self.conv2_bn = nn.BatchNorm2d(128)
+        # self.conv3_bn = nn.BatchNorm2d(128)
+        # self.conv4_bn = nn.BatchNorm2d(256)
+
         # weight init
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.normal(m.weight, 0, 1e-2)
-                nn.init.normal(m.bias, 0.5, 1e-2)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal(m.weight, 0, 2e-1)
-                nn.init.normal(m.weight, 0, 1e-2)
+                nn.init.kaiming_normal(m.weight, mode='fan_in')
+        # for m in self.modules():
+        #     if isinstance(m, nn.Conv2d):
+        #         nn.init.normal(m.weight, 0, 1e-2)
+        #         nn.init.normal(m.bias, 0.5, 1e-2)
+        #     elif isinstance(m, nn.Linear):
+        #         nn.init.normal(m.weight, 0, 2e-1)
+        #         nn.init.normal(m.weight, 0, 1e-2)
 
     def sub_forward(self, x):
         """
@@ -48,10 +56,16 @@ class SiameseNet(nn.Module):
         - out: a Variable of size (B, 4096). The hidden vector representation
           of the input vector x.
         """
+        # out = F.max_pool2d(self.conv1_bn(F.relu(self.conv1(x))), 2)
+        # out = F.max_pool2d(self.conv2_bn(F.relu(self.conv2(out))), 2)
+        # out = F.max_pool2d(self.conv3_bn(F.relu(self.conv3(out))), 2)
+        # out = self.conv4_bn(F.relu(self.conv4(out)))
+
         out = F.relu(F.max_pool2d(self.conv1(x), 2))
         out = F.relu(F.max_pool2d(self.conv2(out), 2))
         out = F.relu(F.max_pool2d(self.conv3(out), 2))
         out = F.relu(self.conv4(out))
+
         out = out.view(out.shape[0], -1)
         out = F.sigmoid(self.fc1(out))
         return out
