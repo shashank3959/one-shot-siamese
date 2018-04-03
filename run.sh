@@ -5,6 +5,7 @@ mkdir data/
 pushd data/
 wget "https://raw.githubusercontent.com/brendenlake/omniglot/master/python/images_background.zip"
 wget "https://raw.githubusercontent.com/brendenlake/omniglot/master/python/images_evaluation.zip"
+wget "https://raw.githubusercontent.com/brendenlake/omniglot/master/python/one-shot-classification/all_runs.zip"
 
 # unzip images
 unzip '*.zip'

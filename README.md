@@ -1,9 +1,15 @@
-# siamese-network
+# Siamese Networks for One-Shot Learning
 
 **WORK IN PROGRESS**
 
 - [ ] on-the-fly data augmentation
-- [ ] read csv log files and plot
+- [x] read csv log files and plot
+
+## Log
+
+- Batch norm seems to have a significant effect in decreasing the loss and increasing validation accuracy right from the get-go (epoch 1)
+- I've noticed the model is extremely sensitive to the learning rate: less than 1e-4 and the loss never decreases, more than 1e-3 and it explodes.
+- Validation accuracy will not increase past 69%. Test accuracy is very poor (in the 45% range) which means it's not able to generalize even when using validation one-shot trials as a stopping criterion.
 
 ## Omniglot Dataset
 

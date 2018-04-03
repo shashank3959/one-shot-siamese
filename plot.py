@@ -33,7 +33,7 @@ def main():
     plt.ylabel('Loss')
     plt.grid()
     plt.tight_layout()
-    plt.savefig(plot_dir + 'train_loss_exp1.png', format='png', dpi=100)
+    plt.savefig(plot_dir + 'train_loss_exp1.png', format='png', dpi=300)
 
 
 if __name__ == '__main__':
