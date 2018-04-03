@@ -5,7 +5,7 @@ mkdir data/
 pushd data/
 wget "https://raw.githubusercontent.com/brendenlake/omniglot/master/python/images_background.zip"
 wget "https://raw.githubusercontent.com/brendenlake/omniglot/master/python/images_evaluation.zip"
-wget "https://raw.githubusercontent.com/brendenlake/omniglot/master/python/one-shot-classification/all_runs.zip"
+# wget "https://raw.githubusercontent.com/brendenlake/omniglot/master/python/one-shot-classification/all_runs.zip"
 
 # unzip images
 unzip '*.zip'
@@ -19,14 +19,14 @@ mv *.zip raw/
 mv images_background/ background/
 mv images_evaluation/ evaluation/
 
-# move 10 first evaluation subdirs to background dir
-pushd evaluation/
-folders=(*/)
-popd
-for ((i=0; i<10; i++))
-do
-  mv "evaluation/${folders[i]}" background/
-done
+# # move 10 first evaluation subdirs to background dir
+# pushd evaluation/
+# folders=(*/)
+# popd
+# for ((i=0; i<10; i++))
+# do
+#   mv "evaluation/${folders[i]}" background/
+# done
 
 mv background processed/
 mv evaluation processed/

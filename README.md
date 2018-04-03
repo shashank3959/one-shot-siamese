@@ -3,6 +3,7 @@
 **WORK IN PROGRESS**
 
 - [ ] on-the-fly data augmentation
+- [ ] currently, dataloader is inefficient. It loads the pickle dump and iterates over it. I can instead store path parameters and at each iteration, read from the folders, convert to tensors and return.
 - [x] read csv log files and plot
 
 ## Log
