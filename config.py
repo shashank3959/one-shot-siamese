@@ -52,6 +52,8 @@ misc_arg.add_argument('--random_seed', type=int, default=1,
                       help='Seed to ensure reproducibility')
 misc_arg.add_argument('--data_dir', type=str, default='./data/',
                       help='Directory in which data is stored')
+misc_arg.add_argument('--plot_dir', type=str, default='./plots/',
+                      help='Directory in which plots are stored')
 misc_arg.add_argument('--ckpt_dir', type=str, default='./ckpt/',
                       help='Directory in which to save model checkpoints')
 misc_arg.add_argument('--logs_dir', type=str, default='./logs/',

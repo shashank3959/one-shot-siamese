@@ -144,9 +144,15 @@ def plot_omniglot_pairs(imgs, labels, name=None, save=False):
     plt.show()
 
 
+def rolling_window(a, window):
+    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+    strides = a.strides + (a.strides[-1],)
+    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+
+
 def prepare_dirs(config):
     num_model = get_num_model(config)
-    for path in [config.ckpt_dir, config.logs_dir]:
+    for path in [config.ckpt_dir, config.logs_dir, config.plot_dir]:
         path = os.path.join(path, num_model)
         if not os.path.exists(path):
             os.makedirs(path)

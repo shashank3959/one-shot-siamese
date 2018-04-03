@@ -3,17 +3,28 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-logs_dir = './logs/exp_1/'
-plot_dir = './plots/'
+from utils import rolling_window
+from argparse import ArgumentParser
 
 
-def rolling_window(a, window):
-    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
-    strides = a.strides + (a.strides[-1],)
-    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+def build_parser():
+    parser = ArgumentParser(description='Plot Args.')
+    parser.add_argument('--model_num', type=str, required=True,
+                        help='Model number for accessing correct log folder')
+    parser.add_argument('--name', type=str, default='loss.png',
+                        help='File name for saving to plot dir')
+    return parser
 
 
-def main():
+def main(args):
+    exp = args.model_num
+    name = args.name
+
+    plot_dir = './plots/'
+    logs_dir = './logs/'
+    logs_dir += 'exp_{}/'.format(exp)
+    plot_dir += 'exp_{}/'.format(exp)
+
     filename = logs_dir + 'train.csv'
     df = pd.read_csv(filename, header=None, names=['iter', 'loss'])
     losses = df['loss'].data
@@ -33,8 +44,10 @@ def main():
     plt.ylabel('Loss')
     plt.grid()
     plt.tight_layout()
-    plt.savefig(plot_dir + 'train_loss_exp1.png', format='png', dpi=300)
+    plt.savefig(plot_dir + name, format='png', dpi=300)
 
 
 if __name__ == '__main__':
-    main()
+    parser = build_parser()
+    args = parser.parse_args()
+    main(args)

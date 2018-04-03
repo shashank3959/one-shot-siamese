@@ -13,7 +13,7 @@ class SiameseNet(nn.Module):
 
     References
     ----------
-    - Koch et. al., https://www.cs.cmu.edu/~rsalakhu/papers/oneshot1.pdf
+    - Koch et al., https://www.cs.cmu.edu/~rsalakhu/papers/oneshot1.pdf
     """
     def __init__(self):
         super(SiameseNet, self).__init__()
