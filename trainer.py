@@ -254,7 +254,7 @@ class Trainer(object):
 
                 # get index of max log prob
                 pred = log_probas.data.max(0)[1]
-                correct += pred.eq(y.data.long()).long().cpu().item()
+                correct += pred.eq(y.data.long()).long().cpu()
                 acc = (100. * correct) / (i+1)
 
                 # store batch statistics
