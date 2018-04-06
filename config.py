@@ -16,11 +16,15 @@ def add_argument_group(name):
 
 # data params
 data_arg = add_argument_group('Data Params')
-data_arg.add_argument('--batch_size', type=int, default=32,
+data_arg.add_argument('--num_train', type=int, default=90000,
+                      help='# of images in train dataset')
+data_arg.add_argument('--batch_size', type=int, default=64,
                       help='# of images in each batch of data')
-data_arg.add_argument('--num_workers', type=int, default=4,
+data_arg.add_argument('--num_workers', type=int, default=1,
                       help='# of subprocesses to use for data loading')
-data_arg.add_argument('--augment', type=str2bool, default=False,
+data_arg.add_argument('--shuffle', type=str2bool, default=True,
+                      help='Whether to shuffle the dataset between epochs')
+data_arg.add_argument('--augment', type=str2bool, default=True,
                       help='Whether to use data augmentation for train data')
 
 
@@ -44,24 +48,22 @@ misc_arg.add_argument('--flush', type=str2bool, default=False,
                       help='Whether to delete ckpt + log files for model no.')
 misc_arg.add_argument('--num_model', type=int, default=1, required=True,
                       help='Model number used for unique checkpointing')
-misc_arg.add_argument('--use_gpu', type=str2bool, default=False,
+misc_arg.add_argument('--use_gpu', type=str2bool, default=True,
                       help="Whether to run on the GPU")
 misc_arg.add_argument('--best', type=str2bool, default=True,
                       help='Load best model or most recent for testing')
 misc_arg.add_argument('--random_seed', type=int, default=1,
                       help='Seed to ensure reproducibility')
-misc_arg.add_argument('--data_dir', type=str, default='./data/',
+misc_arg.add_argument('--data_dir', type=str, default='./data/changed/',
                       help='Directory in which data is stored')
 misc_arg.add_argument('--plot_dir', type=str, default='./plots/',
                       help='Directory in which plots are stored')
 misc_arg.add_argument('--ckpt_dir', type=str, default='./ckpt/',
                       help='Directory in which to save model checkpoints')
 misc_arg.add_argument('--logs_dir', type=str, default='./logs/',
-                      help='Directory in which Tensorboard logs wil be stored')
+                      help='Directory in which logs wil be stored')
 misc_arg.add_argument('--resume', type=str2bool, default=False,
                       help='Whether to resume training from checkpoint')
-misc_arg.add_argument('--print_freq', type=int, default=10,
-                      help='How frequently to print training details')
 
 
 def get_config():

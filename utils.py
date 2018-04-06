@@ -101,9 +101,9 @@ def array2img(x, gray=False):
     return Image.fromarray(x.astype('uint8'), 'RGB')
 
 
-def plot_omniglot_pairs(imgs, labels, name=None, save=False):
-    num_rows = imgs.shape[0]
-    num_cols = imgs.shape[1]
+def plot_omniglot_pairs(pair1, pair2, labels, name=None, save=False):
+    num_rows = 2
+    num_cols = pair1.shape[0]
 
     fig, big_axes = plt.subplots(
         figsize=(8.0, 8.0), nrows=num_rows, ncols=1, sharey=True,
@@ -122,7 +122,7 @@ def plot_omniglot_pairs(imgs, labels, name=None, save=False):
 
     for i in range(num_rows):
         # seperate the pair
-        left, right = imgs[i].squeeze()
+        left, right = pair1[i], pair2[i]
 
         # create left subplot
         ax = fig.add_subplot(num_rows, num_cols, 2*i+1)

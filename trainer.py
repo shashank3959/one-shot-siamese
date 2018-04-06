@@ -41,10 +41,10 @@ class Trainer(object):
             self.train_loader = data_loader[0]
             self.valid_loader = data_loader[1]
             self.num_train = len(self.train_loader.dataset)
-            self.num_valid = len(self.valid_loader.dataset)
+            self.num_valid = self.valid_loader.dataset.times
         else:
             self.test_loader = data_loader
-            self.num_test = len(self.test_loader.dataset)
+            self.num_test = self.test_loader.dataset.times
 
         self.model = SiameseNet()
         if config.use_gpu:
@@ -72,6 +72,7 @@ class Trainer(object):
         )
 
         # optimization params
+        self.best = config.best
         self.best_valid_acc = 0.
         self.epochs = config.epochs
         self.start_epoch = 0
@@ -108,14 +109,17 @@ class Trainer(object):
         #     group['weight_decay'] = self.l2_regs[i]
         #     optim_dict.append(group)
         # self.optimizer = optim.SGD(optim_dict)
+        # self.optimizer = optim.SGD(
+        #     self.model.parameters(), lr=1e-3, momentum=0.9, weight_decay=4e-4,
+        # )
         self.optimizer = optim.Adam(
-            self.model.parameters(), lr=3e-4, weight_decay=4e-4,
+            self.model.parameters(), lr=3e-4, weight_decay=6e-5,
         )
 
-        # learning rate scheduler
-        self.scheduler = StepLR(
-            self.optimizer, step_size=self.lr_patience, gamma=0.99,
-        )
+        # # learning rate scheduler
+        # self.scheduler = StepLR(
+        #     self.optimizer, step_size=self.lr_patience, gamma=0.99,
+        # )
 
     def train(self):
         if self.resume:
@@ -129,7 +133,7 @@ class Trainer(object):
         train_file = open(os.path.join(self.logs_dir, 'train.csv'), 'w')
         valid_file = open(os.path.join(self.logs_dir, 'valid.csv'), 'w')
 
-        print("\n[*] Train on {} samples, validate on {} samples".format(
+        print("\n[*] Train on {} sample pairs, validate on {} trials".format(
             self.num_train, self.num_valid)
         )
 
@@ -185,14 +189,13 @@ class Trainer(object):
 
         tic = time.time()
         with tqdm(total=self.num_train) as pbar:
-            for i, (x, y) in enumerate(self.train_loader):
+            for i, (x1, x2, y) in enumerate(self.train_loader):
                 if self.use_gpu:
-                    x, y = x.cuda(), y.cuda()
-                x, y = Variable(x), Variable(y)
+                    x1, x2, y = x1.cuda(), x2.cuda(), y.cuda()
+                x1, x2, y = Variable(x1), Variable(x2), Variable(y)
 
                 # split input pairs along the batch dimension
-                batch_size = x.shape[0]
-                x1, x2 = x[:, 0], x[:, 1]
+                batch_size = x1.shape[0]
 
                 out = self.model(x1, x2)
                 loss = F.binary_cross_entropy_with_logits(out, y)
@@ -227,59 +230,33 @@ class Trainer(object):
             return train_losses.avg
 
     def validate(self, epoch, file):
-        valid_batch_time = AverageMeter()
-        valid_accs = AverageMeter()
-
         # switch to evaluate mode
         self.model.eval()
 
-        tic = time.time()
-        with tqdm(total=self.num_valid) as pbar:
-            correct = 0
-            for i, (x, y) in enumerate(self.valid_loader):
-                if self.use_gpu:
-                    x, y = x.cuda(), y.cuda()
-                x, y = Variable(x, volatile=True), Variable(y, volatile=True)
+        correct = 0
+        for i, (x1, x2) in enumerate(self.valid_loader):
+            if self.use_gpu:
+                x1, x2 = x1.cuda(), x2.cuda()
+            x1, x2 = Variable(x1, volatile=True), Variable(x2, volatile=True)
 
-                batch_size = x.shape[0]
-                x = x.squeeze(dim=0)
-                y = y.squeeze(dim=0)
+            batch_size = x1.shape[0]
 
-                # split input pairs along the batch dimension
-                x1, x2 = x[:, 0], x[:, 1]
+            # compute log probabilities
+            out = self.model(x1, x2)
+            log_probas = F.sigmoid(out)
 
-                # compute log probabilities
-                out = self.model(x1, x2)
-                log_probas = F.sigmoid(out)
+            # get index of max log prob
+            pred = log_probas.data.max(0)[1][0]
+            if pred == 0:
+                correct += 1
 
-                # get index of max log prob
-                pred = log_probas.data.max(0)[1]
-                correct += pred.eq(y.data.long()).long().cpu()
-                acc = (100. * correct) / (i+1)
-
-                # store batch statistics
-                toc = time.time()
-                valid_accs.update(acc, batch_size)
-                valid_batch_time.update(toc-tic)
-                tic = time.time()
-
-                pbar.set_description(
-                    (
-                        "{:.1f}s - acc: {:.3f}".format(
-                            valid_batch_time.val,
-                            valid_accs.val,
-                        )
-                    )
-                )
-                pbar.update(batch_size)
-
-                # log acc
-                iter = (epoch * len(self.valid_loader)) + i
-                file.write('{},{}\n'.format(
-                    iter, valid_accs.val)
-                )
-
-            return valid_accs.avg
+        # compute acc and log
+        valid_acc = (100. * correct) / self.num_valid
+        iter = epoch
+        file.write('{},{}\n'.format(
+            iter, valid_acc)
+        )
+        return valid_acc
 
     def test(self):
         # load best model
@@ -289,29 +266,26 @@ class Trainer(object):
         self.model.eval()
 
         correct = 0
-        for i, (x, y) in enumerate(self.test_loader):
+        for i, (x1, x2) in enumerate(self.test_loader):
             if self.use_gpu:
-                x, y = x.cuda(), y.cuda()
-            x, y = Variable(x, volatile=True), Variable(y, volatile=True)
+                x1, x2 = x1.cuda(), x2.cuda()
+            x1, x2 = Variable(x1, volatile=True), Variable(x2, volatile=True)
 
-            x = x.squeeze(dim=0)
-            y = y.squeeze(dim=0)
-
-            # split input pairs along the batch dimension
-            x1, x2 = x[:, 0], x[:, 1]
+            batch_size = x1.shape[0]
 
             # compute log probabilities
             out = self.model(x1, x2)
             log_probas = F.sigmoid(out)
 
             # get index of max log prob
-            pred = log_probas.data.max(0)[1]
-            correct += pred.eq(y.data.long()).long().cpu()[0]
+            pred = log_probas.data.max(0)[1][0]
+            if pred == 0:
+                correct += 1
 
-        perc = (100. * correct) / self.num_test
+        test_acc = (100. * correct) / self.num_test
         print(
             "[*] Test Acc: {}/{} ({:.2f}%)".format(
-                correct, self.num_test, perc
+                correct, self.num_test, test_acc
             )
         )
 
@@ -367,10 +341,10 @@ class Trainer(object):
             print(
                 "[*] Loaded {} checkpoint @ epoch {} "
                 "with best valid acc of {:.3f}".format(
-                    filename, ckpt['epoch']+1, ckpt['best_valid_acc'])
+                    filename, ckpt['epoch'], ckpt['best_valid_acc'])
             )
         else:
             print(
                 "[*] Loaded {} checkpoint @ epoch {}".format(
-                    filename, ckpt['epoch']+1)
+                    filename, ckpt['epoch'])
             )

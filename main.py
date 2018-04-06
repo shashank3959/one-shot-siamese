@@ -21,7 +21,8 @@ def main(config):
     if config.is_train:
         data_loader = get_train_valid_loader(
             config.data_dir, config.batch_size,
-            config.augment, **kwargs
+            config.num_train, config.augment,
+            config.shuffle, **kwargs
         )
     else:
         data_loader = get_test_loader(config.data_dir, **kwargs)

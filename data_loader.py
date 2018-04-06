@@ -1,44 +1,25 @@
+import numpy as np
+import random
+import math
+import datetime
+from PIL import Image
 import torch
+import os
+import time
+from random import Random
 
 from utils import pickle_load
+import torchvision.datasets as dset
 from torch.utils.data.dataset import Dataset
-
-
-class Omniglot(Dataset):
-    def __init__(self, data_dir, mode='train', augment=False):
-        self.mode = mode
-        processed = data_dir + 'processed/'
-
-        if mode is 'train':
-            x_name = "X_train"
-            y_name = "y_train"
-            if augment:
-                x_name += '_aug'
-                y_name += '_aug'
-            x_name += '.p'
-            y_name += '.p'
-        elif mode is 'valid':
-            x_name = "X_valid.p"
-            y_name = "y_valid.p"
-        else:
-            x_name = "X_test.p"
-            y_name = "y_test.p"
-
-        self.X = pickle_load(processed + x_name)
-        self.y = pickle_load(processed + y_name)
-
-    def __getitem__(self, index):
-        img = torch.from_numpy(self.X[index])
-        label = torch.from_numpy(self.y[index]).float()
-        return (img, label)
-
-    def __len__(self):
-        return len(self.X)
+from torch.utils.data import DataLoader
+from torchvision import transforms
 
 
 def get_train_valid_loader(data_dir,
                            batch_size,
+                           num_train,
                            augment,
+                           shuffle,
                            num_workers=4,
                            pin_memory=False):
     """
@@ -57,17 +38,41 @@ def get_train_valid_loader(data_dir,
     - pin_memory: whether to copy tensors into CUDA pinned memory. Set it to
       `True` if using GPU.
     """
-    # create train loader
-    train_dataset = Omniglot(data_dir, mode='train', augment=augment)
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True,
+    train_dir = os.path.join(data_dir, 'train')
+    valid_dir = os.path.join(data_dir, 'valid')
+
+    if augment:
+        # randomly select transform with proba 0.5
+        rot = random.choice([0, [-10, 10]])
+        shear = random.choice([None, [-0.3, 0.3]])
+        scale = random.choice([None, [0.8, 1.2]])
+        trans = random.choice([None, [2/150, 2/150]]) # absolute value
+
+        # apply affine transformation
+        aff = transforms.RandomAffine(rot, trans, scale, shear)
+
+        trans = transforms.Compose([
+            aff,
+            transforms.ToTensor()
+        ])
+    else:
+        trans = transforms.ToTensor()
+
+    train_dataset = dset.ImageFolder(root=train_dir)
+    train_dataset = OmniglotTrain(train_dataset, num_train, transform=trans)
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=shuffle,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
-    # create valid loader
-    valid_dataset = Omniglot(data_dir, mode='valid')
-    valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, batch_size=1,
+    valid_dataset = dset.ImageFolder(root=valid_dir)
+    way = 20
+    times = 320
+    valid_dataset = OmniglotTest(
+        valid_dataset, times=times, way=way,
+    )
+    valid_loader = DataLoader(
+        valid_dataset, batch_size=way, shuffle=False,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
@@ -75,6 +80,7 @@ def get_train_valid_loader(data_dir,
 
 
 def get_test_loader(data_dir,
+                    seed,
                     num_workers=4,
                     pin_memory=False):
     """
@@ -91,9 +97,98 @@ def get_test_loader(data_dir,
     - pin_memory: whether to copy tensors into CUDA pinned memory. Set it to
       `True` if using GPU.
     """
-    dataset = Omniglot(data_dir, mode='test')
-    loader = torch.utils.data.DataLoader(
-        dataset, batch_size=1,
+    way = 20
+    times = 400
+
+    test_dir = os.path.join(data_dir, 'test')
+    test_dataset = dset.ImageFolder(root=test_dir)
+    test_dataset = OmniglotTest(
+        test_dataset, seed, times=times, way=way,
+    )
+    test_loader = DataLoader(
+        test_dataset, batch_size=way, shuffle=False,
         num_workers=num_workers, pin_memory=pin_memory,
     )
-    return loader
+    return test_loader
+
+
+# adapted from https://github.com/fangpin/siamese-network
+class OmniglotTrain(Dataset):
+
+    def __init__(self, dataset, num_train, transform=None):
+        super(OmniglotTrain, self).__init__()
+        self.dataset = dataset
+        self.num_train = num_train
+        self.transform = transform
+
+    def __len__(self):
+        return self.num_train
+
+    def __getitem__(self, index):
+        image1 = random.choice(self.dataset.imgs)
+        # get image from same class
+        label = None
+        if index % 2 == 1:
+            label = 1.0
+            while True:
+                image2 = random.choice(self.dataset.imgs)
+                if image1[1] == image2[1]:
+                    break
+        # get image from different class
+        else:
+            label = 0.0
+            while True:
+                image2 = random.choice(self.dataset.imgs)
+                if image1[1] != image2[1]:
+                    break
+        image1 = Image.open(image1[0])
+        image2 = Image.open(image2[0])
+        image1 = image1.convert('L')
+        image2 = image2.convert('L')
+
+        if self.transform:
+            image1 = self.transform(image1)
+            image2 = self.transform(image2)
+        y = torch.from_numpy(np.array([label], dtype=np.float32))
+
+        return (image1, image2, y)
+
+
+# adapted from https://github.com/fangpin/siamese-network
+class OmniglotTest(Dataset):
+    def __init__(self, dataset, seed=0, times=200, way=20):
+        super(OmniglotTest, self).__init__()
+        self.dataset = dataset
+        self.seed = seed
+        self.times = times
+        self.way = way
+        self.transform = transforms.ToTensor()
+        self.rng = Random(self.seed)
+
+    def __len__(self):
+        return (self.times * self.way)
+
+    def __getitem__(self, index):
+        idx = index % self.way
+        label = None
+        # generate image pair from same class
+        if idx == 0:
+            self.img1 = self.rng.choice(self.dataset.imgs)
+            while True:
+                img2 = self.rng.choice(self.dataset.imgs)
+                if self.img1[1] == img2[1]:
+                    break
+        # generate image pair from different class
+        else:
+            while True:
+                img2 = self.rng.choice(self.dataset.imgs)
+                if self.img1[1] != img2[1]:
+                    break
+
+        img1 = Image.open(self.img1[0])
+        img2 = Image.open(img2[0])
+        img1 = img1.convert('L')
+        img2 = img2.convert('L')
+        img1 = self.transform(img1)
+        img2 = self.transform(img2)
+        return img1, img2
