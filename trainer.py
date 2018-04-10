@@ -41,10 +41,10 @@ class Trainer(object):
             self.train_loader = data_loader[0]
             self.valid_loader = data_loader[1]
             self.num_train = len(self.train_loader.dataset)
-            self.num_valid = self.valid_loader.dataset.times
+            self.num_valid = self.valid_loader.dataset.trials
         else:
             self.test_loader = data_loader
-            self.num_test = self.test_loader.dataset.times
+            self.num_test = self.test_loader.dataset.trials
 
         self.model = SiameseNet()
         if config.use_gpu:
@@ -65,7 +65,6 @@ class Trainer(object):
 
         # misc params
         self.resume = config.resume
-        self.print_freq = config.print_freq
         self.use_gpu = config.use_gpu
         self.dtype = (
             torch.cuda.FloatTensor if self.use_gpu else torch.FloatTensor

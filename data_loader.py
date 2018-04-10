@@ -19,7 +19,10 @@ def get_train_valid_loader(data_dir,
                            batch_size,
                            num_train,
                            augment,
-                           shuffle,
+                           way,
+                           trials,
+                           shuffle=False,
+                           seed=0,
                            num_workers=4,
                            pin_memory=False):
     """
@@ -66,10 +69,8 @@ def get_train_valid_loader(data_dir,
     )
 
     valid_dataset = dset.ImageFolder(root=valid_dir)
-    way = 20
-    times = 320
     valid_dataset = OmniglotTest(
-        valid_dataset, times=times, way=way,
+        valid_dataset, trials=trials, way=way, seed=seed,
     )
     valid_loader = DataLoader(
         valid_dataset, batch_size=way, shuffle=False,
@@ -80,7 +81,9 @@ def get_train_valid_loader(data_dir,
 
 
 def get_test_loader(data_dir,
-                    seed,
+                    way,
+                    trials,
+                    seed=0,
                     num_workers=4,
                     pin_memory=False):
     """
@@ -97,13 +100,10 @@ def get_test_loader(data_dir,
     - pin_memory: whether to copy tensors into CUDA pinned memory. Set it to
       `True` if using GPU.
     """
-    way = 20
-    times = 400
-
     test_dir = os.path.join(data_dir, 'test')
     test_dataset = dset.ImageFolder(root=test_dir)
     test_dataset = OmniglotTest(
-        test_dataset, seed, times=times, way=way,
+        test_dataset, trials=trials, way=way, seed=seed,
     )
     test_loader = DataLoader(
         test_dataset, batch_size=way, shuffle=False,
@@ -114,31 +114,33 @@ def get_test_loader(data_dir,
 
 # adapted from https://github.com/fangpin/siamese-network
 class OmniglotTrain(Dataset):
-
-    def __init__(self, dataset, num_train, transform=None):
+    def __init__(self, dataset, num_train, transform=None, seed=0):
         super(OmniglotTrain, self).__init__()
         self.dataset = dataset
         self.num_train = num_train
         self.transform = transform
+        self.seed = seed
 
     def __len__(self):
         return self.num_train
 
     def __getitem__(self, index):
-        image1 = random.choice(self.dataset.imgs)
+        self.rng = Random(self.seed + index)
+
+        image1 = self.rng.choice(self.dataset.imgs)
         # get image from same class
         label = None
         if index % 2 == 1:
             label = 1.0
             while True:
-                image2 = random.choice(self.dataset.imgs)
+                image2 = self.rng.choice(self.dataset.imgs)
                 if image1[1] == image2[1]:
                     break
         # get image from different class
         else:
             label = 0.0
             while True:
-                image2 = random.choice(self.dataset.imgs)
+                image2 = self.rng.choice(self.dataset.imgs)
                 if image1[1] != image2[1]:
                     break
         image1 = Image.open(image1[0])
@@ -156,19 +158,20 @@ class OmniglotTrain(Dataset):
 
 # adapted from https://github.com/fangpin/siamese-network
 class OmniglotTest(Dataset):
-    def __init__(self, dataset, seed=0, times=200, way=20):
+    def __init__(self, dataset, trials, way, seed=0):
         super(OmniglotTest, self).__init__()
         self.dataset = dataset
-        self.seed = seed
-        self.times = times
+        self.trials = trials
         self.way = way
         self.transform = transforms.ToTensor()
-        self.rng = Random(self.seed)
+        self.seed = seed
 
     def __len__(self):
-        return (self.times * self.way)
+        return (self.trials * self.way)
 
     def __getitem__(self, index):
+        self.rng = Random(self.seed + index)
+
         idx = index % self.way
         label = None
         # generate image pair from same class

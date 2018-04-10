@@ -22,10 +22,16 @@ def main(config):
         data_loader = get_train_valid_loader(
             config.data_dir, config.batch_size,
             config.num_train, config.augment,
-            config.shuffle, **kwargs
+            config.way, config.valid_trials,
+            config.shuffle, config.random_seed,
+            **kwargs
         )
     else:
-        data_loader = get_test_loader(config.data_dir, **kwargs)
+        data_loader = get_test_loader(
+            config.data_dir, config.way,
+            config.test_trials, config.random_seed,
+            **kwargs
+        )
 
     # sample 3 layer wise hyperparams if first time training
     if config.is_train and not config.resume:
