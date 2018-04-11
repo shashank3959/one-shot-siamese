@@ -7,6 +7,7 @@ import torch
 import os
 import time
 from random import Random
+import Augmentor
 
 from utils import pickle_load
 import torchvision.datasets as dset
@@ -44,25 +45,8 @@ def get_train_valid_loader(data_dir,
     train_dir = os.path.join(data_dir, 'train')
     valid_dir = os.path.join(data_dir, 'valid')
 
-    if augment:
-        # randomly select transform with proba 0.5
-        rot = random.choice([0, [-10, 10]])
-        shear = random.choice([None, [-0.3, 0.3]])
-        scale = random.choice([None, [0.8, 1.2]])
-        trans = random.choice([None, [2/150, 2/150]]) # absolute value
-
-        # apply affine transformation
-        aff = transforms.RandomAffine(rot, trans, scale, shear)
-
-        trans = transforms.Compose([
-            aff,
-            transforms.ToTensor()
-        ])
-    else:
-        trans = transforms.ToTensor()
-
     train_dataset = dset.ImageFolder(root=train_dir)
-    train_dataset = OmniglotTrain(train_dataset, num_train, transform=trans)
+    train_dataset = OmniglotTrain(train_dataset, num_train, augment)
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=shuffle,
         num_workers=num_workers, pin_memory=pin_memory,
@@ -114,33 +98,31 @@ def get_test_loader(data_dir,
 
 # adapted from https://github.com/fangpin/siamese-network
 class OmniglotTrain(Dataset):
-    def __init__(self, dataset, num_train, transform=None, seed=0):
+    def __init__(self, dataset, num_train, augment=False):
         super(OmniglotTrain, self).__init__()
         self.dataset = dataset
         self.num_train = num_train
-        self.transform = transform
-        self.seed = seed
+        self.augment = augment
 
     def __len__(self):
         return self.num_train
 
     def __getitem__(self, index):
-        self.rng = Random(self.seed + index)
+        image1 = random.choice(self.dataset.imgs)
 
-        image1 = self.rng.choice(self.dataset.imgs)
         # get image from same class
         label = None
         if index % 2 == 1:
             label = 1.0
             while True:
-                image2 = self.rng.choice(self.dataset.imgs)
+                image2 = random.choice(self.dataset.imgs)
                 if image1[1] == image2[1]:
                     break
         # get image from different class
         else:
             label = 0.0
             while True:
-                image2 = self.rng.choice(self.dataset.imgs)
+                image2 = random.choice(self.dataset.imgs)
                 if image1[1] != image2[1]:
                     break
         image1 = Image.open(image1[0])
@@ -148,11 +130,23 @@ class OmniglotTrain(Dataset):
         image1 = image1.convert('L')
         image2 = image2.convert('L')
 
-        if self.transform:
-            image1 = self.transform(image1)
-            image2 = self.transform(image2)
-        y = torch.from_numpy(np.array([label], dtype=np.float32))
+        # apply transformation on the fly
+        if self.augment:
+            p = Augmentor.Pipeline()
+            p.rotate(probability=0.5, max_left_rotation=5, max_right_rotation=5)
+            p.random_distortion(
+                probability=0.5, grid_width=6, grid_height=6, magnitude=10,
+            )
+            trans = transforms.Compose([
+                p.torch_transform(),
+                transforms.ToTensor(),
+            ])
+        else:
+            trans = transforms.ToTensor()
 
+        image1 = trans(image1)
+        image2 = transforms.ToTensor()(image2)
+        y = torch.from_numpy(np.array([label], dtype=np.float32))
         return (image1, image2, y)
 
 
