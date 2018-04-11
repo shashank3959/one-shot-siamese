@@ -133,7 +133,7 @@ class OmniglotTrain(Dataset):
         # apply transformation on the fly
         if self.augment:
             p = Augmentor.Pipeline()
-            p.rotate(probability=0.5, max_left_rotation=5, max_right_rotation=5)
+            p.rotate(probability=0.5, max_left_rotation=15, max_right_rotation=15)
             p.random_distortion(
                 probability=0.5, grid_width=6, grid_height=6, magnitude=10,
             )
