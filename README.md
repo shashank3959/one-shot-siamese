@@ -16,8 +16,8 @@ I've done some slight modifications to the paper to eliminate variables while I 
 ## Omniglot Dataset
 
 <p align="center">
- <img src="./plots/omniglot.png" alt="Drawing", width=50%>
- <img src="./plots/augmented.png" alt="Drawing", width=50%>
+ <img src="./plots/omniglot.png" alt="Drawing", width=30%> <img src="./plots/augmented.png" alt="Drawing", width=30%>
+ <img src="./plots/augmented_v2.png" alt="Drawing", width=30%>
 </p>
 
 Execute the following commands
